@@ -39,9 +39,6 @@ You can start by adding code into the code editor, then you can add sketch annot
 This codebase is largely developed based on [tldraw](https://github.com/tldraw/tldraw)'s [MakeReal project](https://github.com/tldraw/make-real).
 This work was made possible by NSERC Discovery Grant RGPIN-2024-03827, NSERC Discovery Grant \#RGPIN-2020-03966, and Canada foundation for innovation - John R. Evans Leaders Fund (JELF) \#42371.
 
-## License
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
 ## Citation
 ```bibtex
 @inproceedings{10.1145/3706598.3713822,

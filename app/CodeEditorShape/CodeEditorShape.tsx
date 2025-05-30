@@ -4,19 +4,26 @@ import {
     TLBaseShape,
     SvgExportContext,
     useIsEditing,
+    useValue,
+    Vec,
 } from '@tldraw/tldraw'
 
-import { RecordProps, T } from 'tldraw'
+import { RecordProps, T, TLOnHandleDragHandler } from 'tldraw'
+// import CodeMirrorMerge, { CodeMirrorMergeProps } from 'react-codemirror-merge';
 
-import CodeMirror, { EditorView, ChangeSet, StateEffect, type ReactCodeMirrorRef, Decoration, DecorationSet, gutter, GutterMarker } from '@uiw/react-codemirror';
+import CodeMirror, { EditorView, ChangeSet, EditorState, StateEffect, type ReactCodeMirrorRef, Decoration, WidgetType, DecorationSet, gutter, GutterMarker } from '@uiw/react-codemirror';
 import { python } from '@codemirror/lang-python';
 import { javascript } from '@codemirror/lang-javascript';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import html2canvas from 'html2canvas';
-import { unifiedMergeView, updateOriginalDoc } from '@codemirror/merge';
+// import * as JsDiff from "diff";
+import { acceptChunk, unifiedMergeView, updateOriginalDoc } from '@codemirror/merge';
 import { undo } from "@codemirror/commands";
 import { RangeSet, StateField } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
+// import { createTheme } from '@uiw/codemirror-themes';
+// const Original = CodeMirrorMerge.Original;
+// const Modified = CodeMirrorMerge.Modified;
 
 export type CodeEditorShape = TLBaseShape<
     'code-editor-shape',
@@ -37,7 +44,6 @@ export type CodeEditorShape = TLBaseShape<
                 endLine: number
             }
         }
-        taskFiles?: { [key: string]: string }
     }
 >
 
@@ -75,7 +81,7 @@ const highlightField = StateField.define<DecorationSet>({
     },
     update(highlights, transaction) {
         highlights = highlights.map(transaction.changes);
-        for (const effect of transaction.effects) {
+        for (let effect of transaction.effects) {
             if (effect.is(highlightEffect)) {
                 highlights = highlights.update({
                     add: [
@@ -100,6 +106,7 @@ function applyHighlights(view: EditorView, code: string) {
     tree.iterate({
         enter(node) {
             const nodeText = view.state.doc.sliceString(node.from, node.to);
+            // console.log('nodeText', nodeText, code)
             if (nodeText === code) {
                 effects.push(highlightEffect.of({ from: node.from, to: node.to }));
             }
@@ -134,20 +141,20 @@ const interpretationState = StateField.define<RangeSet<GutterMarker>>({
     create() { return RangeSet.empty },
     update(set, tr) {
         set = set.map(tr.changes);
-        for (const effect of tr.effects) {
-            if (effect.is(interpretationEffect)) {
-                const marker = effect.value.isSource ? sourceMarker : targetMarker;
-                if (effect.value.on) {
-                    for (let line = effect.value.from; line <= effect.value.to; line++) {
+        for (let e of tr.effects) {
+            if (e.is(interpretationEffect)) {
+                const marker = e.value.isSource ? sourceMarker : targetMarker;
+                if (e.value.on) {
+                    for (let line = e.value.from; line <= e.value.to; line++) {
                         set = set.update({ add: [marker.range(line)] });
                     }
                 } else {
-                    set = set.update({ filter: from => !(from >= effect.value.from && from <= effect.value.to) });
+                    set = set.update({ filter: from => !(from >= e.value.from && from <= e.value.to) });
                 }
-            } else if (effect.is(verticalRectEffect)) {
-                const lineCount = effect.value.to - effect.value.from + 1;
-                const marker = new VerticalRectMarker(effect.value.height);
-                for (let line = effect.value.from; line <= effect.value.to; line++) {
+            } else if (e.is(verticalRectEffect)) {
+                const lineCount = e.value.to - e.value.from + 1;
+                const marker = new VerticalRectMarker(e.value.height);
+                for (let line = e.value.from; line <= e.value.to; line++) {
                     set = set.update({ add: [marker.range(line)] });
                 }
             }
@@ -272,7 +279,6 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
         prevCode: T.string,
         res: T.string,
         interpretations: T.any,
-        taskFiles: T.any,
     }
 
     getDefaultProps(): CodeEditorShape['props'] {
@@ -292,8 +298,7 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
                     startLine: 0,
                     endLine: 0
                 }
-            },
-            taskFiles: {}
+            }
         }
     }
 
@@ -336,6 +341,7 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
 
                 const codeMatches = shape.props.interpretations.action.match(/\[\[CODE:(.*?)\]\]/);
                 if (codeMatches?.[1]) {
+                    // console.log('CODE MATCHES', codeMatches[1]);
                     applyHighlights(view, codeMatches[1]);
                 }
             }
@@ -343,18 +349,22 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
 
         useEffect(() => {
             if (codeMirrorRef.current) {
+                const view = codeMirrorRef.current?.view
+                console.log('shape.props.code', view?.contentHeight, shape.props.h);
                 this.editor.updateShape<CodeEditorShape>({
                     id: shape.id,
                     type: 'code-editor-shape',
                     isLocked: false,
                     props: {
                         ...shape.props,
-                        h: 800
+                        h: view?.contentHeight || shape.props.h,
                     }
                 })
 
                 const codeMirrorView = codeMirrorRef.current?.view as EditorView
+                // const codeMirrorState = codeMirrorView?.state
                 if (codeMirrorView) {
+                    // acceptChunk(codeMirrorRef.current?.view as EditorView)
                     codeMirrorView?.dispatch({
                         effects: updateOriginalDoc.of({
                             doc: codeMirrorView.state.toText(shape.props.prevCode),
@@ -365,7 +375,7 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
                     const code = shape.props.code;
                     const prevCode = shape.props.prevCode;
                     if (code.length === prevCode.length + 1 && code.endsWith(' ') && code.slice(0, -1) === prevCode) {
-                        undo(codeMirrorView);
+                        undo(codeMirrorView); // This performs the undo operation
                     }
                 }
 
@@ -376,10 +386,62 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
                 })
             }
 
-        }, [shape.id, shape.props, shape.props.code, shape.props.prevCode])
+        }, [shape.props.code, shape.props.prevCode])
+
+
+        useEffect(() => {
+            if (shape.props.res) {
+                console.log('shape.props.res', shape.props.res);
+            }
+        }, [shape.props.res]);
 
 
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+            const touch = e.touches[0];
+            const editorView = codeMirrorRef.current?.view;
+            if (editorView) {
+                const pos = editorView.posAtCoords({ x: touch.clientX, y: touch.clientY });
+                if (pos) {
+                    editorView.dispatch({ selection: { anchor: pos, head: pos } });
+                }
+                startPosition.current = editorView.posAtCoords({ x: touch.clientX, y: touch.clientY }) || 0;
+            }
+            e.stopPropagation();
+            return;
+        }
+
+        const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+            const touch = e.touches[0];
+            const editorView = codeMirrorRef.current?.view;
+            if (editorView) {
+                const pos = editorView.posAtCoords({ x: touch.clientX, y: touch.clientY });
+                if (pos && startPosition.current) {
+                    editorView.dispatch({ selection: { anchor: startPosition.current, head: pos } });
+                } else if (pos) {
+                    editorView.dispatch({ selection: { anchor: pos, head: pos } });
+                    startPosition.current = pos || 0;
+                }
+            }
+            return;
+        }
+
+        useEffect(() => {
+            let timeoutId: any;
+            if (selectionRange) {
+                const view = codeMirrorRef.current?.view;
+                const coords = view?.coordsAtPos(selectionRange.anchor);
+                if (coords) {
+                    setMenuPosition({ top: coords.top + 20, left: coords.left });
+                    timeoutId = setTimeout(() => {
+                        setSelectionRange(null);
+                        view?.dispatch({ selection: { anchor: selectionRange.anchor, head: selectionRange.anchor } });
+                    }, 2000);
+                }
+            }
+            return () => clearTimeout(timeoutId);
+        }, [selectionRange]);
 
         const handleCopy = () => {
             const view = codeMirrorRef.current?.view;
@@ -408,6 +470,18 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
             }
         };
 
+        const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+            const view = codeMirrorRef.current?.view;
+            if (view) {
+                const selection = view.state.selection.main;
+                if (selection.from !== selection.to) {
+                    setSelectionRange({ anchor: selection.from, head: selection.to });
+                }
+            }
+            startPosition.current = null;
+            e.stopPropagation();
+        };
+
         const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
             e.preventDefault();
             e.stopPropagation();
@@ -416,6 +490,9 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
 
         return (
             <div
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
                 onDoubleClick={handleDoubleClick}
                 style={{
                     touchAction: isTouchDevice ? 'auto' : 'none',
@@ -434,16 +511,30 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
                         ref={codeMirrorRef}
                         value={shape.props.code}
                         style={{
-                            fontSize: '16px',
+                            fontSize: '19px',
                             border: '1px solid var(--color-panel-contrast)',
                             borderRadius: 'var(--radius-2)',
                             backgroundColor: 'var(--color-background)',
                             width: `${shape.props.w}px`,
                             height: `${shape.props.h + 10}px`
                         }}
+                        // onCreateEditor?(view: EditorView, state: EditorState): void;
+                        // onCreateEditor={(view: EditorView, state: EditorState) => {
+                        //     handleEditorCreation(view, state, shape);
+                        // }}
                         extensions={[...extensions, interpretationGutter]}
                         height={`${shape.props.h}px`}
                         editable={true}
+                    // onChange={(value) => {
+                    //     this.editor.updateShape<CodeEditorShape>({
+                    //         id: shape.id,
+                    //         type: 'code-editor-shape',
+                    //         props: {
+                    //             ...shape.props,
+                    //             code: value
+                    //         }
+                    //     })
+                    // }}
                     />
                 </div>
                 {(
@@ -513,6 +604,10 @@ export class CodeEditorShapeUtil extends BaseBoxShapeUtil<CodeEditorShape> {
     override onRotateStart = (shape: CodeEditorShape) => {
         return;
     }
+
+    // override onResizeStart = (shape: CodeEditorShape) => {
+    //     return;
+    // }
 
     override onHandleDrag = (shape: CodeEditorShape) => {
         return;

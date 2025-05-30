@@ -18,6 +18,7 @@ export function getSelectionAsText(editor: Editor) {
 			)
 		})
 		.sort((a, b) => {
+			// top first, then left, based on page position
 			const pageBoundsA = editor.getShapePageBounds(a)!
 			const pageBoundsB = editor.getShapePageBounds(b)!
 

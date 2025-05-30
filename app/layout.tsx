@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import Head from 'next/head'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-	title: 'code-shaping',
-	description: 'editing code by sketching on and around the code',
+	title: 'shape code (canvas-on-code)',
+	description: 'A prototype for a tool that generates code from hand-drawn annotations on a canvas.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

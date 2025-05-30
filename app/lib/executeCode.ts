@@ -1,9 +1,17 @@
 import {
-    Editor, type TLShapeId
+    Editor, createShapeId, TLBaseShape, TLImageShape, TLTextShape,
+    AssetRecordType, type TLShapeId
 } from '@tldraw/tldraw'
-import { CodeEditorShape } from '../components/Shapes/CodeEditorShape'
-
+import { getSelectionAsText } from './getSelectionAsText'
+import { CodeEditorShape } from '../CodeEditorShape/CodeEditorShape'
+//@ts-ignore
 import * as xPython from '@x-python/core'
+import { downloadDataURLAsFile } from './downloadDataUrlAsFile';
+import { PreviewShape } from '../PreviewShape/PreviewShape';
+// import { writeFileSync } from 'fs';
+// import { promisify } from 'util';
+
+// const writeFileSyncAsync = promisify(writeFileSync)
 
 
 export type CodeExecResultType = "image" | "text" | "table";
@@ -13,14 +21,12 @@ export interface CodeExecReturnValue {
     stdout: string | null;
     stderr: string | null;
     type: CodeExecResultType;
-    files?: { [key: string]: string };
 }
 
 const packages = {
     official: ["pandas", "matplotlib", "numpy", "scipy"],
     micropip: ["seaborn", "scikit-learn"],
 };
-
 const matplotlibCode = `import os
 import base64
 from io import BytesIO\n
@@ -147,7 +153,7 @@ function tableToHtml(output: string, id: TLShapeId, className: string): string {
 }
 
 const codeRefactoring = async (code: string): Promise<string> => {
-    const lines = code.split("\n");
+    let lines = code.split("\n");
     let lastLineIndex = lines.length - 1;
 
     // Find the last non-empty line
@@ -193,6 +199,8 @@ const installExtraPackages = async (code: string) => {
 };
 
 const isTable = (result: string): boolean => {
+    // detect if the result(string) is a table, and parse it to html
+    // example string that contains table: "sepal length (cm)  sepal width (cm)  petal length (cm)  petal width (cm)\n0                5.1               3.5                1.4               0.2\n1                4.9               3.0                1.4               0.2\n2                4.7               3.2                1.3               0.2\n3                4.6               3.1                1.5               0.2\n4                5.0               3.6                1.4               0.2"
     const lines = result.split("\n");
     if (lines.length <= 1) {
         return false;
@@ -217,60 +225,88 @@ const decideExecResultType = (result: any) => {
     }
 };
 
+
 export async function executeCode(editor: Editor, codeShapeId: TLShapeId) {
+    // const selectedShapes = editor.getSelectedShapes()
+
+    // if (selectedShapes.length === 0) throw Error('First select something to execute.')
     await xPython.init();
 
-    // Get the latest code for pipeline.py
-    let pipelineCodeShape = editor.getShape<CodeEditorShape>(codeShapeId);
-    if (!pipelineCodeShape) {
-        pipelineCodeShape = editor.getCurrentPageShapes().find(shape => shape.type === 'code-editor-shape') as CodeEditorShape;
-    }
-    if (!pipelineCodeShape || pipelineCodeShape.props.code === '') {
-        throw Error('No code to execute.');
-    }
 
-    const currentCode = pipelineCodeShape.props.code;
-    
-    const allSelectedCode = await codeRefactoring(currentCode);
+    // const { maxX, midY } = editor.getSelectionPageBounds()!
+    // const newShapeId = createShapeId()
+    // for (const shape of selectedShapes) {
+    //     if (shape.type === 'code-editor-shape') {
+    //         allSelectedCode += (shape as CodeEditorShape).props.code
+    //     }
+    // }
+
+    let codeEditorShape = editor.getShape<CodeEditorShape>(codeShapeId)
+    if (!codeEditorShape) codeEditorShape = editor.getCurrentPageShapes().find(shape => shape.type === 'code-editor-shape') as CodeEditorShape
+    console.log(codeEditorShape)
+    if (!codeEditorShape || codeEditorShape.props.code === '') { throw Error('No code to execute.') }
+
+    const allSelectedCode = await codeRefactoring(codeEditorShape.props.code)
     await installExtraPackages(allSelectedCode);
-    const { result: code } = await xPython.format({ code: allSelectedCode });
+    const { result: code } = await xPython.format({
+        code: allSelectedCode,
+    });
 
-    const { error, stdout, stderr } = (await xPython.exec({ code })) as CodeExecReturnValue;
+
+    const { error, stdout, stderr } = (await xPython.exec({
+        code: code,
+    })) as CodeExecReturnValue;
+
+    console.log('stdout', stdout, error, stderr)
 
     if (error || !stdout) {
-        throw Error(error || 'No output from the code.');
+        throw Error(error || 'No output from the code.')
     }
 
-    // Process the output
+    const resultType = decideExecResultType(stdout) as CodeExecResultType;
+
     let htmlResult = '';
+    // Match only jpg images in base64 format
     const images = stdout.match(/data:image\/jpg;base64,[^"]+/g) || [];
     let nonImageContent = stdout;
+
+    // Generate HTML for each image
     const imageHtml = images.map(image => `<img src="${image}" alt="image" width="400">`).join('');
+
+    // Remove image data from the non-image content
     images.forEach(image => {
         nonImageContent = nonImageContent.replace(image, '');
     });
+
+    // Wrap non-image content in a <pre> tag
     const nonImageHtml = `<pre>${nonImageContent.trim()}</pre>`;
+
+    // Combine HTML results
     htmlResult = `${nonImageHtml}${imageHtml}`;
 
     if (htmlResult === '') {
         throw Error('No result to display.');
     }
-
+    console.log(htmlResult);
     editor.updateShape<CodeEditorShape>({
-        id: pipelineCodeShape.id,
+        id: codeEditorShape.id,
         type: 'code-editor-shape',
         isLocked: false,
         props: {
-            ...pipelineCodeShape.props,
+            ...codeEditorShape.props,
             res: htmlResult,
         },
-    });
+    })
 
     editor.updateShape<CodeEditorShape>({
-        id: pipelineCodeShape.id,
+        id: codeEditorShape.id,
         type: 'code-editor-shape',
-        isLocked: true,
-    });
+        isLocked: true
+    })
+
+    // set editing
+    // editor.setSelectedShapes([codeShapeId])
+    // editor.setEditingShape(codeShapeId)
 
     return htmlResult;
 }

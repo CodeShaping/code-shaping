@@ -1,21 +1,35 @@
-import { useToasts, type TLShapeId, Editor } from '@tldraw/tldraw'
-import { useCallback, useState } from 'react'
+import { useEditor, useToasts, type TLShapeId, Editor } from '@tldraw/tldraw'
+import { useCallback, useState, useEffect } from 'react'
 import { executeCode } from '../lib/executeCode'
 import { VscRunAll } from "react-icons/vsc";
 import { FaRunning } from "react-icons/fa";
 
 
-export function ExecuteCodeButton({ editor, codeShapeId }: { editor: Editor, codeShapeId: TLShapeId }) {
+// getNewShapeId
+export function ExecuteCodeButton({ editor, codeShapeId, onStoreLog }: { editor: Editor, codeShapeId: TLShapeId, onStoreLog: (log: any) => void }) {
+	// const editor = useEditor()
 	const { addToast } = useToasts()
 	const [isExecuting, setIsExecuting] = useState(false)
 
 	const handleClick = useCallback(async () => {
-		setIsExecuting(true);	
-		const res = await executeCode(editor, codeShapeId)
-		if (res) {
-			setIsExecuting(false);
-		}
-	try {
+		setIsExecuting(true);
+			console.log('Code SHape ID', codeShapeId)
+			let res = await executeCode(editor, codeShapeId)
+			// remove html tags
+			// res = res.replace(/<[^>]*>?/gm, '')
+			
+			if (res) {
+				setIsExecuting(false);
+				// addToast({
+				// 	icon: 'check',
+				// 	title: 'Code executed successfully',
+				// 	description: res,
+				// })
+				onStoreLog({ type: 'compiled-result', data: res });
+			}
+		try {
+
+			
 		} catch (e) {
 			setIsExecuting(false);
 			console.error(e)
@@ -25,8 +39,9 @@ export function ExecuteCodeButton({ editor, codeShapeId }: { editor: Editor, cod
 				description: (e as Error).message,
 			})
 
+			onStoreLog({ type: 'compiled-error', data: (e as Error).message });
 		}
-	}, [editor, codeShapeId, addToast])
+	}, [editor, addToast])
 
 	return (
 		<button className="executeCodeButton" onClick={handleClick}>

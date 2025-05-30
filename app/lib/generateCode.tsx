@@ -1,10 +1,15 @@
-import { Editor, getSvgAsImage, Box, TLShape, TLShapeId, TLGroupShape } from '@tldraw/tldraw'
+import { Editor, createShapeId, getSvgAsImage, Box, TLShape, TLShapeId, TLTextShape, TLGeoShape, TLGroupShape } from '@tldraw/tldraw'
 import { getSelectionAsText } from './getSelectionAsText'
-import { getCodeFromOpenAI } from '../services/getCodeFromOpenAI'
+import { getCodeFromOpenAI } from './getCodeFromOpenAI'
 
 import { blobToBase64 } from './blobToBase64'
-import { CodeEditorShape } from '../components/Shapes/CodeEditorShape'
+import { addGridToSvg } from './addGridToSvg'
+import { addCoordinateToSvg } from './addCoordinateToSvg'
+import { CodeEditorShape } from '../CodeEditorShape/CodeEditorShape'
+
+import { downloadDataURLAsFile } from './downloadDataUrlAsFile'
 import * as Diff from 'diff';
+
 
 export interface Sketch {
 	shape: string;
@@ -19,16 +24,17 @@ export async function generateCode(
 	editor: Editor,
 	apiKey: string,
 	codeShapeId: TLShapeId,
-	onStart: () => void, onFinish: (original_code: string, code_edit: string) => void,
+	onStart: () => void, onFinish: (original_code: string, code_edit: string) => void, onStoreLog: (log: any) => void,
 	groupId?: TLShapeId,
 ) {
 	onStart()
 	editor.resetZoom()
 	let groupShape: TLGroupShape
 	let intended_edit = '' as string
-	const selectedShapes = editor.getCurrentPageShapes() as TLShape[]
+	let selectedShapes = editor.getCurrentPageShapes() as TLShape[]
 
 	if (groupId) {
+		// selectedShapes = selectedShapes.filter((shape) => shape.id === groupId || shape.type === 'code-editor-shape')
 		groupShape = selectedShapes.find((shape) => shape.id === groupId) as TLGroupShape || editor.getShape(groupId) as TLGroupShape
 		intended_edit = groupShape.meta.intended_edit as string
 	}
@@ -50,15 +56,18 @@ export async function generateCode(
 
 	if (!svgString) throw Error(`Could not get the SVG.`)
 
-	// const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+	const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 	const blob = await getSvgAsImage(editor, svgString.svg, {
 		height: window.innerHeight || 1080,
 		width: window.innerWidth || 1920,
 		type: 'png',
 		quality: 1,
+		scale: 1,
 	})
 	const dataUrl = await blobToBase64(blob!)
 	// downloadDataURLAsFile(dataUrl, 'tldraw.png')
+
+	onStoreLog({ type: 'generate-param', data: dataUrl })
 
 	const previousCodeEditors = selectedShapes.filter((shape) => {
 		return shape.type === 'code-editor-shape'
@@ -127,7 +136,7 @@ export async function generateCode(
 
 				// Create a normalized version of allCode and a mapping of indices from normalized to original
 				const normalizedAllCode = normalizeString(allCode);
-				const originalIndexMapping = [] as number[];
+				let originalIndexMapping = [] as number[];
 				let count = 0;
 				for (let i = 0; i < allCode.length; i++) {
 					if (!/\s/.test(allCode[i])) { // If not a whitespace character
@@ -136,7 +145,7 @@ export async function generateCode(
 					}
 				}
 
-				diff.forEach((part: { value: string, removed: boolean, added: boolean }) => {
+				diff.forEach(part => {
 					const normalizedPartValue = normalizeString(part.value);
 					if (part.removed) {
 						const indexInNormalized = normalizedAllCode.indexOf(normalizedPartValue, currentIndex);
@@ -178,6 +187,7 @@ export async function generateCode(
 			});
 		} else {
 			code_edit = message.match(/```(python|javascript)([\s\S]*?)```/)?.[2] || message
+			onStoreLog({ type: 'generate-code', data: code_edit })
 			const prevCode = editor.getShape<CodeEditorShape>(codeShapeId)?.props.code || ''
 
 			editor.updateShape<CodeEditorShape>({
@@ -199,6 +209,7 @@ export async function generateCode(
 
 	} catch (e) {
 		console.error(e)
+		onStoreLog({ type: 'compiled-error', data: (e as Error).message })
 		throw e
 	} finally {
 		onFinish(original_code, code_edit)

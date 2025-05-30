@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface ActionRecognitionProps {
     text: string;
 }
 
 const ActionRecognition: React.FC<ActionRecognitionProps> = ({ text }) => {
+    // const [expandedKeys, setExpandedKeys] = useState<Set<number>>(new Set());
+
     const parseText = (text: string) => {
-        const elements: React.ReactNode[] = [];
+        const elements: JSX.Element[] = [];
         let keyCounter = 0;
 
         const regex = /\[\[(ACTION|CODE|RECOGNITION):(.*?)\]\]/g;
@@ -49,6 +51,17 @@ const ActionRecognition: React.FC<ActionRecognitionProps> = ({ text }) => {
     };
 
     const renderTruncatedText = (text: string, key: number, style: React.CSSProperties) => {
+        // const isExpanded = expandedKeys.has(key);
+        // const handleClick = () => {
+        //     const newExpandedKeys = new Set(expandedKeys);
+        //     if (isExpanded) {
+        //         newExpandedKeys.delete(key);
+        //     } else {
+        //         newExpandedKeys.add(key);
+        //     }
+        //     setExpandedKeys(newExpandedKeys);
+        // };
+
         return (
             <span key={key} style={style} title={text}>
                 {text.length <= 20 ? text : `${text.slice(0, 30)}...`}

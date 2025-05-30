@@ -1,8 +1,8 @@
-import { CodeEditorShape } from '../components/Shapes/CodeEditorShape'
+import { CodeEditorShape } from '../CodeEditorShape/CodeEditorShape'
 import {
     OPENAI_INTERPRETATION_SKETCH_PROMPT,
     OPENAI_USER_INTERPRETATION_SKETCH_PROMPT,
-} from './prompt'
+} from '../prompt'
 
 export async function getInterpretationFromAI({
     image,
@@ -41,6 +41,7 @@ export async function getInterpretationFromAI({
         text: OPENAI_USER_INTERPRETATION_SKETCH_PROMPT,
     })
 
+    
     // Add the image
     userContent.push({
         type: 'image_url',
@@ -58,12 +59,26 @@ export async function getInterpretationFromAI({
         })
     }
 
+    // if (grid) {
+    // 	userContent.push({
+    // 		type: 'text',
+    // 		text: `The user have a ${grid.color} grid overlaid on top. Each cell of the grid is ${grid.size}x${grid.size}px.`,
+    // 	})
+    // }
+
+    // 
     userContent.push(
         {
             type: 'text',
             text: `And here's the code that user annotated with: ${codeEditorShape.props.code}`,
         }
     )
+
+    // Prompt the theme
+    // userContent.push({
+    // 	type: 'text',
+    // 	text: `Please make your result use the ${theme} theme.`,
+    // })
 
     const body: GPT4oCompletionRequest = {
         model: 'gpt-4o',
@@ -86,6 +101,7 @@ export async function getInterpretationFromAI({
             body: JSON.stringify(body),
         })
         json = await resp.json()
+        // console.log(json)
     } catch (e: any) {
         throw Error(`Could not contact OpenAI: ${e.message}`)
     }

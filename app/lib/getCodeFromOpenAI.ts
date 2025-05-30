@@ -1,10 +1,10 @@
-import { CodeEditorShape } from '../components/Shapes/CodeEditorShape'
+import { CodeEditorShape } from '../CodeEditorShape/CodeEditorShape'
 import {
     OPENAI_MAKE_CODE_PROMPT,
     OPENAI_USER_MAKE_CODE_PROMPT,
     OPENAI_EDIT_PARTIAL_CODE_PROMPT,
     OPENAI_USER_EDIT_PARTIAL_CODE_PROMPT,
-} from './prompt'
+} from '../prompt'
 
 export async function getCodeFromOpenAI({
     interpretation,
@@ -29,8 +29,6 @@ export async function getCodeFromOpenAI({
 }) {
     if (!apiKey) throw Error('You need to provide an API key (sorry)')
 
-
-
     const messages: GPT4oCompletionRequest['messages'] = [
         {
             role: 'system',
@@ -38,11 +36,81 @@ export async function getCodeFromOpenAI({
         },
         {
             role: 'user',
-            content: []
+            content: [],
         },
     ]
 
     const userContent = messages[1].content as Exclude<MessageContent, string>
+
+    userContent.push({
+        type: 'text',
+        text: `If user asks to flatten the nested if statements, you can provide a code snippet: def process_transaction(transaction: Transaction, db: Database):
+    if transaction.amount <= 0:
+        return {"status": "error", "message": "Invalid transaction amount"}
+    
+    if transaction.sender == transaction.recipient:
+        return {"status": "error", "message": "Sender and recipient cannot be the same"}
+    
+    if not await validate_transaction(transaction):
+        return {"status": "error", "message": "Transaction validation failed"}
+    
+    sender_balance = await db.execute_query(f"SELECT balance FROM accounts WHERE user='{transaction.sender}'")
+    recipient_exists = await db.execute_query(f"SELECT id FROM accounts WHERE user='{transaction.recipient}'")
+    
+    if not (sender_balance[0]['balance'] >= transaction.amount and recipient_exists):
+        return {"status": "error", "message": "Insufficient funds or recipient not found"}
+    
+    # Perform the transaction
+    await db.execute_query(f"UPDATE accounts SET balance = balance - {transaction.amount} WHERE user='{transaction.sender}'")
+    await db.execute_query(f"UPDATE accounts SET balance = balance + {transaction.amount} WHERE user='{transaction.recipient}'")
+    return {"status": "success", "message": "Transaction processed successfully"}`,
+    })
+
+
+    userContent.push({
+        type: 'text',
+        text: `Example: if user asks to combine queries into a single query, you can provide a code snippet: await db.execute_query(f"""
+    BEGIN;
+    UPDATE accounts SET balance = balance - {transaction.amount} WHERE user='{transaction.sender}';
+    UPDATE accounts SET balance = balance + {transaction.amount} WHERE user='{transaction.recipient}';
+    COMMIT;
+""")
+return {"status": "success", "message": "Transaction processed successfully"}`,
+    })
+
+
+    userContent.push({
+        type: 'text',
+        text: `and if ask about adding a try catch block, you can provide a code snippet:
+        if sender_balance[0]['balance'] >= transaction.amount and recipient_exists:
+        try:
+            db.execute_query(f"""
+                BEGIN;
+                UPDATE accounts SET balance = balance - {transaction.amount} WHERE user='{transaction.sender}';
+                UPDATE accounts SET balance = balance + {transaction.amount} WHERE user='{transaction.recipient}';
+                COMMIT;
+            """)
+            return {"status": "success", "message": "Transaction processed successfully"}
+        except Exception as e:
+            db.execute_query("ROLLBACK;")
+            return {"status": "error", "message": f"Transaction failed: {str(e)}"}
+    else:
+        return {"status": "error", "message": "Insufficient funds or recipient not found"}`
+    })
+
+    userContent.push({
+        type: 'text',
+        text: `Example: if user circles all database operations with  draws a diagram with multiple "Query" boxes flowing into a "Batch Query" box. you can add a class: class QueryBatch:
+    def __init__(self):
+        self.queries = []
+    
+    def add(self, query):
+        self.queries.append(query)
+    
+    def execute(self, db):
+        return db.execute_query("; ".join(self.queries))
+        `,
+    })
 
     userContent.push({
         type: 'text',
@@ -57,6 +125,7 @@ export async function getCodeFromOpenAI({
             detail: 'high',
         },
     })
+
 
     if (interpretation) {
         userContent.push({
@@ -96,6 +165,11 @@ export async function getCodeFromOpenAI({
         })
     }
 
+    // Prompt the theme
+    // userContent.push({
+    // 	type: 'text',
+    // 	text: `Please make your result use the ${theme} theme.`,
+    // })
 
     const body: GPT4oCompletionRequest = {
         model: 'gpt-4o',
@@ -118,8 +192,8 @@ export async function getCodeFromOpenAI({
             body: JSON.stringify(body),
         })
         json = await resp.json()
-    } catch (e: unknown) {
-        throw Error(`Could not contact OpenAI: ${e instanceof Error ? e.message : 'Unknown error'}`)
+    } catch (e: any) {
+        throw Error(`Could not contact OpenAI: ${e.message}`)
     }
 
     return json
@@ -151,8 +225,8 @@ export type GPT4oCompletionRequest = {
         content: MessageContent
         name?: string | undefined
     }[]
-    functions?: unknown[] | undefined
-    function_call?: unknown | undefined
+    functions?: any[] | undefined
+    function_call?: any | undefined
     stream?: boolean | undefined
     temperature?: number | undefined
     top_p?: number | undefined

@@ -13,6 +13,11 @@
 	-moz-osx-font-smoothing: grayscale;
 }
 
+/* .tl-shape {
+	pointer-events: visible !important;
+	touch-action: auto !important;
+} */
+
 .tlui-navigation-zone {
 	display: none !important;
 }
@@ -53,6 +58,44 @@
 	width: 100vw;
 }
 
+.file-manager {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	z-index: 1000;
+	background-color: var(--color-panel);
+}
+
+/* Add these new styles */
+.file-manager-button {
+	background-color: var(--color-panel);
+	border: none;
+	border-radius: 50%;
+	width: 40px;
+	height: 40px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	cursor: pointer;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.file-manager-content {
+	position: absolute;
+	top: 50px;
+	left: 10px;
+	background-color: white;
+	border-radius: 5px;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+	padding: 10px;
+	min-width: 200px;
+	max-width: 300px;
+	display: none;
+}
+
+.file-manager-content.expanded {
+	display: block;
+}
 
 .editor {
 	position: fixed;
@@ -64,19 +107,86 @@
 	overflow: hidden;
 }
 
-.tldrawLogo {
-	position: absolute;
-	z-index: 9999999;
-	bottom: 0px;
-	right: 0px;
+
+.shareButtonGroup {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
 }
 
-.tldrawLogo__mobile {
-	bottom: 60px;
+.taskSelector {
+	border: 2px solid rgb(77, 171, 247);
+	background-color: #f7fafc;
+	color: rgb(77, 171, 247);
+	padding: var(--space-3) var(--space-4);
+	margin: 5px;
+	border-radius: var(--radius-2);
+	font: inherit;
+	font-weight: 600;
+
+	cursor: pointer;
+	pointer-events: all;
+
+	transition: background-color 0.3s ease, transform 0.2s ease;
+	/* Smooth transitions */
+}
+
+.taskSelector:hover {
+	opacity: 0.8;
+}
+
+.taskSelector.active {
+	background-color: rgb(77, 171, 247);
+	color: white;
+}
+
+.taskSelectorDescription {
+	font-size: 10px;
+	color: #718096;
+}
+
+
+.lockCodeEditorButton {
+	position: fixed;
+	bottom: 1rem;
+	z-index: 999;
+	right: 26%;
+	box-shadow: var(--shadow-2);
+	/* background: rgb(77, 171, 247); */
+	background-color: var(--color-panel);
+	/* color: white; */
+	border: none;
+	font: inherit;
+	font-weight: 600;
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-2);
+	cursor: pointer;
+	pointer-events: all;
+}
+
+.lockCodeEditorButton:hover {
+	opacity: 0.95;
+}
+
+.unlockCodeEditorButton {
+	background: rgb(77, 171, 247);
+	color: white;
+	border: none;
+	font: inherit;
+	font-weight: 600;
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-2);
+	cursor: pointer;
+	pointer-events: all;
+}
+
+.unlockCodeEditorButton:hover {
+	opacity: 0.95;
 }
 
 .executeCodeButton,
-.commitChangesButton {
+.makeRealButton {
 	background-color: var(--color-panel);
 	color: black;
 	border: 1px solid #D0C3F7;
@@ -96,13 +206,13 @@
 	border-bottom-right-radius: var(--radius-2);
 }
 
-.commitChangesButton {
+.makeRealButton {
 	border-top-left-radius: var(--radius-2);
 	border-bottom-left-radius: var(--radius-2);
 }
 
 .executeCodeButton:hover,
-.commitChangesButton:hover {
+.makeRealButton:hover {
 	opacity: 0.95;
 }
 
@@ -154,11 +264,11 @@
 
 .your-own-api-key {
 	position: absolute;
-	bottom: 72px;
-	right: 0px;
-	width: 100%;
-	display: flex;
-	flex-direction: column;
+	top: 10px;
+	right: 10px;
+	/* width: 100%; */
+	/* display: flex;
+	flex-direction: column; */
 	align-items: center;
 	justify-content: center;
 	z-index: 9999999;
@@ -208,7 +318,7 @@
 }
 
 .input__wrapper:not(:focus-within)::after {
-	content: 'Your OpenAI API Key (risky but cool)';
+	content: 'Your OpenAI API Key';
 	display: block;
 	position: absolute;
 	inset: 0px;
@@ -218,7 +328,7 @@
 	padding: 0px 12px;
 	z-index: 999999999;
 	background-color: none;
-	font-size: 12px;
+	font-size: 10px;
 	font-family: Inter, sans-serif;
 }
 
@@ -244,6 +354,244 @@
 }
 
 
+
+/* ADMIN */
+.logs-table {
+	width: 100%;
+	text-align: left;
+	color: #000;
+	border-collapse: collapse;
+	border-radius: 15px;
+	overflow: hidden;
+	margin: 20px 0;
+}
+
+.logs-table thead {
+	font-size: 12px;
+	color: #fff;
+	background-color: rgb(77, 171, 247);
+}
+
+.logs-table thead th {
+	padding: 12px 15px;
+}
+
+.logs-table tbody {
+	background-color: #fff;
+}
+
+.logs-table tbody tr {
+	color: #718096;
+	border-bottom: 1px solid #e2e8f0;
+}
+
+.logs-table tbody tr:hover {
+	background-color: #f7fafc;
+}
+
+.logs-table tbody td {
+	padding: 12px 15px;
+}
+
+.logs-table .cell-content {
+	cursor: pointer;
+	position: relative;
+	max-height: 3em;
+	/* Adjust based on line height to fit two lines */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.logs-table .cell-content.expanded {
+	max-height: none;
+	white-space: normal;
+}
+
+.logs-table .cell-content::after {
+	content: 'More';
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	background-color: #f9f9f9;
+	padding: 0 5px;
+	cursor: pointer;
+}
+
+.logs-table .cell-content.expanded::after {
+	content: 'Less';
+	background-color: transparent;
+}
+
+
+
+/* META UI HELPER */
+#meta-ui-helper {
+	position: absolute;
+	z-index: 900;
+	margin: 0;
+	pointer-events: auto;
+	/* Changed from 'none' to 'auto' to allow interactions */
+	background: rgba(255, 255, 255, 0.95);
+	padding: 10px;
+	border-radius: 5px;
+	border: 2px solid #007bff;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+	font-family: Arial, sans-serif;
+}
+
+#meta-ui-helper .header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding-bottom: 5px;
+	/* margin-bottom: 10px; */
+}
+
+#meta-ui-helper .header button {
+	border: none;
+	background: none;
+	font-size: 1.2em;
+	cursor: pointer;
+	color: #007bff;
+}
+
+#meta-ui-helper .header button:hover {
+	color: #0056b3;
+}
+
+#meta-ui-helper .content {
+	border-top: 2px solid #007bff;
+	padding-top: 5px;
+}
+
+#meta-ui-helper .content p {
+	margin: 3px 0;
+}
+
+#meta-ui-helper .content span {
+	display: block;
+	margin: 3px 0;
+}
+
+#meta-ui-helper .content input {
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	padding: 2px 3px;
+}
+
+#meta-ui-helper .content button {
+	border: none;
+	background: none;
+	font-size: 1em;
+	cursor: pointer;
+	color: #007bff;
+	margin-left: 5px;
+}
+
+#meta-ui-helper .content button:hover {
+	color: #0056b3;
+}
+
+
+/* RECOG HISTORIES */
+.recognition-histories {
+	width: 300px;
+	background: rgba(255, 255, 255, 0.9);
+	border: 2px solid #007bff;
+	border-radius: 5px;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+	padding: 15px;
+	font-family: Arial, sans-serif;
+	margin: 10px;
+	overflow: auto;
+}
+
+.recognition-histories h2 {
+	font-size: 1.2em;
+	color: #007bff;
+	margin-bottom: 10px;
+	border-bottom: 2px solid #007bff;
+	padding-bottom: 5px;
+}
+
+.recognition-histories table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.recognition-histories th,
+.recognition-histories td {
+	text-align: left;
+	padding: 8px;
+	border-bottom: 1px solid #ddd;
+}
+
+.recognition-histories th {
+	background-color: #f2f2f2;
+}
+
+.recognition-histories tr:hover {
+	background-color: #f1f1f1;
+}
+
+.recognition-histories button {
+	border: none;
+	background: none;
+	color: #007bff;
+	cursor: pointer;
+	font-size: 0.9em;
+}
+
+.recognition-histories button:hover {
+	color: #0056b3;
+}
+
+
+.tlui-buttons__grid {
+	grid-template-columns: repeat(8, auto) !important;
+}
+
+.controlBrushes {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	margin-top: 2rem;
+}
+
+.controlBrushes .controlBrushButton {
+	z-index: 100;
+	box-shadow: var(--shadow-1);
+	background: var(--color-panel);
+	/* inner border */
+	border: 1px solid white;
+	font: inherit;
+	font-weight: 600;
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-2);
+	cursor: pointer;
+	pointer-events: all;
+	margin: 0 var(--space-1);
+}
+
+.controlBrushes .controlBrushButton:hover {
+	opacity: 0.95;
+}
+
+.controlBrushes .controlBrushButton.active {
+	border-width: 2px;
+}
+
+
+.source-highlight {
+	background-color: rgba(255, 255, 0, 0.3);
+}
+
+.target-highlight {
+	background-color: rgba(0, 255, 0, 0.3);
+}
+
 .editor-actions {
 	display: flex;
 	flex-direction: row;
@@ -255,7 +603,10 @@
 }
 
 .interpretation-result {
+	/* position: absolute; */
 	z-index: 999;
+	/* bottom: 5px; */
+	/* right: 5rem; */
 	text-align: end;
 	font-size: small;
 	font-family: 'tldraw_draw';
@@ -272,6 +623,7 @@
 	padding: 1px 2px;
 }
 
+/* HTML: <div class="loader"></div> */
 .loader {
 	margin-right: 5px;
 	margin-top: 5px;

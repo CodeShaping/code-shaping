@@ -1,4 +1,4 @@
-import { useToasts } from '@tldraw/tldraw'
+import { useEditor, useToasts } from '@tldraw/tldraw'
 import { useCallback, useState, useEffect } from 'react'
 import { generateCode } from '../lib/generateCode'
 // import { CodeEditorShape } from '../CodeEditorShape/CodeEditorShape'
@@ -7,16 +7,17 @@ import { VscGitPullRequest } from "react-icons/vsc";
 import { GoGitPullRequestDraft, GoCommit, GoRepoPush } from "react-icons/go";
 
 
-export function GenerateCodeButton({ interpretation, editor, codeShapeId }: { interpretation: string, editor: Editor, codeShapeId: TLShapeId }) {
+export function GenerateCodeButton({ interpretation, editor, codeShapeId, onStoreLog }: { interpretation: string, editor: Editor, codeShapeId: TLShapeId, onStoreLog: (log: any) => void }) {
+	// const editor = useEditor()
 	const { addToast } = useToasts()
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
-	const [currentIcon, setCurrentIcon] = useState(<VscGitPullRequest />);
+	const [currentIcon, setCurrentIcon] = useState<JSX.Element>(<VscGitPullRequest />);
 
 	const icons = [
 	  <GoGitPullRequestDraft key="pull-request" />,
-	  <GoCommit key="commit" />,	
+	  <GoCommit key="commit" />,
 	  <GoRepoPush key="repo-push" />
-	]
+	];
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -33,15 +34,19 @@ export function GenerateCodeButton({ interpretation, editor, codeShapeId }: { in
 
 	const handleClick = useCallback(async () => {
 		try {
-			const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
+			// First try to get API key from localStorage (user input), then fall back to environment variable
+			const userApiKey = localStorage.getItem('makeitreal_key')
+			const apiKey = userApiKey || process.env.NEXT_PUBLIC_OPENAI_API_KEY
 			if (!apiKey) throw Error('Make sure the input includes your API Key!')
 
 			const onStart = () => setIsGenerating(true);
-			const onFinish = () => {
+			const onFinish = (original_code: string, code_edit: string) => {
+				// console.log('Original Code:', original_code)
+				// console.log('Code Edit:', code_edit)
 				setIsGenerating(false)
 			}
 			
-			await generateCode(interpretation, editor, apiKey, codeShapeId, onStart, onFinish)
+			await generateCode(interpretation, editor, apiKey, codeShapeId, onStart, onFinish, onStoreLog)
 		} catch (e) {
 			console.error(e)
 			addToast({
@@ -55,7 +60,7 @@ export function GenerateCodeButton({ interpretation, editor, codeShapeId }: { in
 	}, [editor, codeShapeId, addToast])
 
 	return (
-		<button className="commitChangesButton" onClick={handleClick}>
+		<button className="makeRealButton" onClick={handleClick}>
 			{currentIcon}
 			<span style={{ marginLeft: '0.2rem' }} />
 			{isGenerating ? 'Commiting Changes...' : 'Commit'}
